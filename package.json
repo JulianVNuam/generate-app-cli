@@ -1,0 +1,10 @@
+{
+  "name": "generate-app-cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": { "company-cli": "bin/index.js" },
+  "dependencies": {
+    "degit": "^2.8.4",
+    "inquirer": "^9.0.0"
+  }
+}

@@ -1,16 +1,30 @@
+#!/usr/bin/env node
 import inquirer from "inquirer";
 import { execSync } from "child_process";
 import degit from "degit";
 import fs from "fs";
 import path from "path";
+import os from "os";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const TEMPLATE_REPO_BASE =
-  "github:JulianVNuam/generate-app-cli/project-templates/";
+/**
+ * CONFIG
+ * - Todo está en el MISMO repo:
+ *   https://github.com/JulianVNuam/generate-app-cli/tree/main/project-templates
+ * - degit NO usa /tree/...; se usa la sintaxis github:user/repo/subdir#branch
+ */
+const GITHUB_USER = "JulianVNuam";
+const GITHUB_REPO = "generate-app-cli";
+const SUBDIR_BASE = "project-templates";
+const DEFAULT_BRANCH = "main";
 
+// Base para degit (sin /tree/)
+const TEMPLATE_REPO_BASE = `github:${GITHUB_USER}/${GITHUB_REPO}/${SUBDIR_BASE}/`;
+
+/** Map de plantillas */
 const templateMap = {
   react: { base: "react", tailwind: "react-tailwind" },
   nextjs: { base: "nextjs", tailwind: "nextjs-tailwind" },
@@ -25,6 +39,43 @@ function detectPkgManager() {
 
 function run(cmd, cwd) {
   execSync(cmd, { stdio: "inherit", cwd });
+}
+
+/** Fallback para repos privados o errores de degit */
+async function cloneWithGitFallback({ templateName, destDir }) {
+  const tmpDir = path.join(os.tmpdir(), `cli-tpl-${Date.now()}`);
+  // Clona repo completo vía SSH (requiere tener acceso)
+  const repoSsh = `git@github.com:${GITHUB_USER}/${GITHUB_REPO}.git`;
+  console.log(
+    `\n🔁 Usando fallback: git clone (SSH) → ${repoSsh}#${DEFAULT_BRANCH}`
+  );
+  run(`git clone --depth=1 -b ${DEFAULT_BRANCH} ${repoSsh} "${tmpDir}"`);
+
+  const from = path.join(tmpDir, SUBDIR_BASE, templateName);
+  if (!fs.existsSync(from)) {
+    throw new Error(
+      `No existe la carpeta de plantilla: ${SUBDIR_BASE}/${templateName} en la rama ${DEFAULT_BRANCH}`
+    );
+  }
+  fs.mkdirSync(destDir, { recursive: true });
+  fs.cpSync(from, destDir, { recursive: true });
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+}
+
+/** Clona plantilla con degit y, si falla, usa git fallback */
+async function cloneTemplateOrFallback({ templateName, destDir }) {
+  const src = `${TEMPLATE_REPO_BASE}${templateName}#${DEFAULT_BRANCH}`;
+  try {
+    const emitter = degit(src);
+    await emitter.clone(destDir);
+  } catch (err) {
+    console.warn(
+      `\n⚠️  degit falló (${
+        err?.code || "UNKNOWN"
+      }). Intentando fallback con git clone...`
+    );
+    await cloneWithGitFallback({ templateName, destDir });
+  }
 }
 
 async function main() {
@@ -67,12 +118,13 @@ async function main() {
   const templateName = wantTailwind
     ? templateMap[selectedFramework].tailwind
     : templateMap[selectedFramework].base;
+
   const targetDir = path.join(process.cwd(), answers.projectName);
 
   console.log(`\n📦 Descargando plantilla: ${templateName}...`);
-  const emitter = degit(`${TEMPLATE_REPO_BASE}${templateName}`);
-  await emitter.clone(targetDir);
+  await cloneTemplateOrFallback({ templateName, destDir: targetDir });
 
+  // Guarda config elegida
   fs.writeFileSync(
     path.join(targetDir, "config.cli.json"),
     JSON.stringify(answers, null, 2)
@@ -81,6 +133,7 @@ async function main() {
   console.log("\n📥 Instalando dependencias...");
   run(`${pkgm} install`, targetDir);
 
+  // ===== Features opcionales =====
   if (answers.features.includes("eslintPrettier")) {
     console.log("\n🧹 Configurando ESLint + Prettier...");
     run(
@@ -120,14 +173,14 @@ async function main() {
       `${pkgm} ${pkgm === "yarn" ? "add -D" : "install -D"} husky lint-staged`,
       targetDir
     );
-    // activar husky
     run(`npx husky init`, targetDir);
-    // agregar hook pre-commit
     const hookPath = path.join(targetDir, ".husky", "pre-commit");
-    const hook = `#!/bin/sh\n. "$(dirname "$0")/_/husky.sh"\n${pkgm} exec lint-staged\n`;
+    const hook = `#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+${pkgm} exec lint-staged
+`;
     fs.writeFileSync(hookPath, hook, { mode: 0o755 });
 
-    // agregar config lint-staged al package.json
     const pkgJsonPath = path.join(targetDir, "package.json");
     const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf-8"));
     pkg["lint-staged"] = {
@@ -146,7 +199,9 @@ async function main() {
         } vitest @testing-library/react @testing-library/jest-dom jsdom`,
         targetDir
       );
-      const vitestCfg = `import { defineConfig } from 'vitest/config'\nexport default defineConfig({ test: { environment: 'jsdom' } })\n`;
+      const vitestCfg = `import { defineConfig } from 'vitest/config'
+export default defineConfig({ test: { environment: 'jsdom' } })
+`;
       fs.writeFileSync(path.join(targetDir, "vitest.config.js"), vitestCfg);
     } else {
       run(
@@ -155,7 +210,13 @@ async function main() {
         } @testing-library/react @testing-library/jest-dom jest jest-environment-jsdom ts-jest`,
         targetDir
       );
-      const jestCfg = `/** @type {import('jest').Config} */\nconst config = {\n  testEnvironment: 'jsdom',\n  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],\n};\nmodule.exports = config;\n`;
+      const jestCfg = `/** @type {import('jest').Config} */
+const config = {
+  testEnvironment: 'jsdom',
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+};
+module.exports = config;
+`;
       fs.writeFileSync(path.join(targetDir, "jest.config.cjs"), jestCfg);
       fs.writeFileSync(
         path.join(targetDir, "jest.setup.js"),
@@ -197,4 +258,7 @@ async function main() {
   console.log(`cd ${answers.projectName} && ${pkgm} run dev`);
 }
 
-main();
+main().catch((e) => {
+  console.error("\n❌ Error inesperado:", e?.message || e);
+  process.exit(1);
+});
