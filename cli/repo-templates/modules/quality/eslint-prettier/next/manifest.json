@@ -1,0 +1,26 @@
+{
+  "id": "quality/eslint-prettier",
+  "name": "ESLint + Prettier",
+  "appliesTo": ["next"],
+  "files": [
+    { "from": "files/", "to": "./", "mode": "merge" }
+  ],
+  "deps": {
+    "npm": {}
+  },
+  "patches": [
+    {
+      "type": "markerInsert",
+      "file": "instructions.md",
+      "marker": "ArchitecturalRules",
+      "contentFile": "docs/instructions.fragment.md"
+    },
+    {
+      "type": "markerInsert",
+      "file": "instructions.md",
+      "marker": "ForbiddenActions",
+      "contentFile": "docs/forbidden.fragment.md"
+    }
+  ],
+  "env": []
+}

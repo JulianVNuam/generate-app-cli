@@ -1,0 +1,21 @@
+{
+  "id": "ui/tailwind",
+  "name": "Tailwind CSS",
+  "appliesTo": ["next"],
+  "conflicts": [],
+  "files": [
+    { "from": "files/", "to": "./", "mode": "merge" }
+  ],
+  "deps": {
+    "npm": {}
+  },
+  "patches": [
+    {
+      "type": "markerInsert",
+      "file": "instructions.md",
+      "marker": "Styling",
+      "contentFile": "docs/instructions.fragment.md"
+    }
+  ],
+  "env": []
+}

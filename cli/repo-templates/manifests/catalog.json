@@ -1,0 +1,61 @@
+{
+  "cores": [
+    {
+      "id": "next",
+      "type": "frontend",
+      "name": "Next.js (App Router)"
+    },
+    {
+      "id": "react",
+      "type": "frontend",
+      "name": "React"
+    },
+    {
+      "id": "go",
+      "type": "backend",
+      "name": "Go"
+    }
+  ],
+  "modules": [
+    {
+      "id": "ui/tailwind",
+      "category": "ui",
+      "appliesTo": ["next", "react"]
+    },
+    {
+      "id": "ui/styled-components",
+      "category": "ui",
+      "appliesTo": ["next", "react"]
+    },
+    {
+      "id": "quality/eslint-prettier",
+      "category": "quality",
+      "appliesTo": ["next", "react"]
+    },
+    {
+      "id": "tests/jest",
+      "category": "tests",
+      "appliesTo": ["next", "react"]
+    },
+    {
+      "id": "api/rest-client",
+      "category": "api",
+      "appliesTo": ["next", "react"]
+    },
+    {
+      "id": "api/graphql-hygraph",
+      "category": "api",
+      "appliesTo": ["next", "react"]
+    },
+    {
+      "id": "auth/jwt-go",
+      "category": "auth",
+      "appliesTo": ["go"]
+    },
+    {
+      "id": "auth/keycloak",
+      "category": "auth",
+      "appliesTo": ["go"]
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "id": "core/next",
+  "stack": "next",
+  "version": "1.0.0",
+  "templateDir": "template",
+  "docsBase": "docs/instructions.base.md",
+  "env": []
+}
